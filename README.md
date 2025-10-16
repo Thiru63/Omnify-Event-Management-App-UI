@@ -144,7 +144,7 @@ const events = await getEvents({
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
-- Backend API running (see backend README)
+- Backend API running [(see backend README)](https://github.com/Thiru63/Omnify-Event-Management-App-Server/)
 
 ### Installation
 ```bash
