@@ -38,7 +38,7 @@ const defaultFilters: EventFiltersType = {
   per_page: 10,
   sort_by: 'start_time',
   sort_order: 'asc',
-  search_in: 'name',
+  search_in: 'all',
   seat_available_events: false,
 };
 
@@ -141,7 +141,7 @@ export function EventFilters({
             />
           </div>
           
-          {/* Search In Dropdown */}
+          {/* Search In Dropdown 
           <Select
             value={localFilters.search_in}
             onValueChange={(value) => handleFilterChange('search_in', value)}
@@ -157,7 +157,7 @@ export function EventFilters({
                 </SelectItem>
               ))}
             </SelectContent>
-          </Select>
+          </Select> */}
 
           {/* Timezone Dropdown */}
           <Select
