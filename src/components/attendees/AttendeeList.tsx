@@ -165,9 +165,9 @@ export function AttendeeList({ eventId }: AttendeeListProps) {
           </p>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full sm:w-auto">
           {/* Items Per Page Selector */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 order-2 sm:order-1">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Show:</span>
             <Select
               value={pagination.per_page.toString()}
@@ -187,7 +187,7 @@ export function AttendeeList({ eventId }: AttendeeListProps) {
           </div>
 
           {/* Search Input */}
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-64 order-1 sm:order-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search attendees..."
@@ -234,8 +234,8 @@ export function AttendeeList({ eventId }: AttendeeListProps) {
             {filteredAttendees.map((attendee, index) => (
               <Card key={attendee.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4 flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex items-start space-x-4 flex-1 min-w-0">
                       {/* Avatar Placeholder */}
                       <div className="flex-shrink-0">
                         <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -245,31 +245,33 @@ export function AttendeeList({ eventId }: AttendeeListProps) {
                       
                       {/* Attendee Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
                           <h4 className="font-semibold text-lg truncate">
                             {attendee.name}
                           </h4>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs w-fit">
                             #{(pagination.current_page - 1) * pagination.per_page + index + 1}
                           </Badge>
                         </div>
                         
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                          <Mail className="h-3 w-3" />
+                          <Mail className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{attendee.email}</span>
                         </div>
                         
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
+                          <Calendar className="h-3 w-3 flex-shrink-0" />
                           <span>Registered {formatRegistrationDate(attendee.created_at)}</span>
                         </div>
                       </div>
                     </div>
                     
-                    {/* Status Badge */}
-                    <Badge variant="secondary" className="flex-shrink-0">
-                      Registered
-                    </Badge>
+                    {/* Status Badge - Now properly positioned for mobile */}
+                    <div className="flex sm:flex-col sm:items-end gap-2 sm:gap-1">
+                      <Badge variant="secondary" className="flex-shrink-0 text-xs">
+                        Registered
+                      </Badge>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
