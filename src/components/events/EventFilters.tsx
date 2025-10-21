@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Filter, X, SlidersHorizontal, Calendar, MapPin, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ interface EventFiltersProps {
   availableLocations: string[];
 }
 
+
 const defaultFilters: EventFiltersType = {
   timezone: 'Asia/Kolkata',
   page: 1,
@@ -51,31 +52,81 @@ const sortOptions = [
   { value: 'current_attendees', label: 'Current Attendees', icon: '✅' },
 ];
 
-const searchInOptions = [
-  { value: 'all', label: 'All Fields', icon: '🔍' },
-  { value: 'name', label: 'Event Name', icon: '📝' },
-  { value: 'location', label: 'Location', icon: '📍' },
-  { value: 'start_time', label: 'Start Date', icon: '⏰' },
-  { value: 'end_time', label: 'End Date', icon: '🕒' },
-  { value: 'max_capacity', label: 'Max Capacity', icon: '👥' },
-  { value: 'current_attendees', label: 'Current Attendees', icon: '✅' },
-];
-
 export function EventFilters({
   filters,
   onFiltersChange,
   availableLocations,
 }: EventFiltersProps) {
   const [localFilters, setLocalFilters] = useState<EventFiltersType>(filters);
+  const [searchInput, setSearchInput] = useState(filters.search_for || '');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const hasActiveFilters = 
-    filters.search_for ||
-    (filters.filter_by_location && filters.filter_by_location.length > 0) ||
-    filters.seat_available_events ||
-    filters.sort_by !== 'start_time' ||
-    filters.sort_order !== 'asc' ||
-    filters.search_in !== 'name';
+  // Update local filters when props change (only for advanced filters)
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
+
+  // Update search input when filters.search_for changes externally
+  useEffect(() => {
+    setSearchInput(filters.search_for || '');
+  }, [filters.search_for]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handle search with debounce - only call API when search term actually changes
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      // Only call API if search term has changed
+      if (value !== filters.search_for) {
+        const newFilters = { 
+          ...filters, 
+          search_for: value || undefined,
+          page: 1 // Reset to first page when searching
+        };
+        onFiltersChange(newFilters);
+      }
+    }, 500); // 500ms debounce
+  }, [filters, onFiltersChange]);
+
+  // Handle immediate search (on Enter key or clear)
+  const handleImmediateSearch = useCallback((value: string) => {
+    // Clear any pending timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    const newFilters = { 
+      ...filters, 
+      search_for: value || undefined,
+      page: 1
+    };
+    onFiltersChange(newFilters);
+  }, [filters, onFiltersChange]);
+
+  // Handle timezone change immediately
+  const handleTimezoneChange = (timezone: string) => {
+    if (typeof window !== 'undefined') {
+    localStorage.setItem('event-timezone', timezone);
+  }
+    const newFilters = { ...filters, timezone, page: 1 };
+    onFiltersChange(newFilters);
+  };
 
   const handleFilterChange = (key: keyof EventFiltersType, value: any) => {
     const newFilters = { ...localFilters, [key]: value, page: 1 };
@@ -101,6 +152,7 @@ export function EventFilters({
       newFilters.filter_by_location = filters.filter_by_location?.filter(loc => loc !== value);
     } else if (filterKey === 'search_for') {
       newFilters.search_for = undefined;
+      setSearchInput('');
     } else if (filterKey === 'seat_available_events') {
       newFilters.seat_available_events = false;
     } else if (filterKey === 'sort_by') {
@@ -108,7 +160,7 @@ export function EventFilters({
     } else if (filterKey === 'sort_order') {
       newFilters.sort_order = 'asc';
     } else if (filterKey === 'search_in') {
-      newFilters.search_in = 'name';
+      newFilters.search_in = 'all';
     }
     
     onFiltersChange({ ...newFilters, page: 1 });
@@ -121,9 +173,28 @@ export function EventFilters({
     if (filters.seat_available_events) count++;
     if (filters.sort_by !== 'start_time') count++;
     if (filters.sort_order !== 'asc') count++;
-    if (filters.search_in !== 'name') count++;
+    if (filters.search_in !== 'all') count++;
     return count;
   };
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleImmediateSearch(searchInput);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    handleImmediateSearch('');
+  };
+
+  const hasActiveFilters = 
+    filters.search_for ||
+    (filters.filter_by_location && filters.filter_by_location.length > 0) ||
+    filters.seat_available_events ||
+    filters.sort_by !== 'start_time' ||
+    filters.sort_order !== 'asc' ||
+    filters.search_in !== 'all';
 
   return (
     <div className="space-y-4">
@@ -135,47 +206,40 @@ export function EventFilters({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search events by name, location, date..."
-              value={localFilters.search_for || ''}
-              onChange={(e) => handleFilterChange('search_for', e.target.value)}
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
               className="pl-10 pr-4 py-2 h-10 rounded-lg border-input bg-background"
             />
+            {searchInput && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
           
-          {/* Search In Dropdown 
-          <Select
-            value={localFilters.search_in}
-            onValueChange={(value) => handleFilterChange('search_in', value)}
-          >
-            <SelectTrigger className="w-[160px] h-10 rounded-lg">
-              <SelectValue placeholder="Search in..." />
-            </SelectTrigger>
-            <SelectContent>
-              {searchInOptions.map(option => (
-                <SelectItem key={option.value} value={option.value} className="flex items-center gap-2">
-                  <span className="text-sm">{option.icon}</span>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select> */}
-
           {/* Timezone Dropdown */}
-          <Select
-            value={localFilters.timezone}
-            onValueChange={(value) => handleFilterChange('timezone', value)}
-          >
-            <SelectTrigger className="w-[200px] h-10 rounded-lg">
-              <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {getTimezoneOptions().map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Select
+              value={filters.timezone}
+              onValueChange={handleTimezoneChange}
+            >
+              <SelectTrigger className="w-[200px] h-10 rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {getTimezoneOptions().map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Advanced Filters Button */}
@@ -372,6 +436,7 @@ export function EventFilters({
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg border">
           <span className="text-sm font-medium text-muted-foreground mr-2">Active filters:</span>
+          
           {filters.search_for && (
             <Badge variant="secondary" className="flex items-center gap-1 pl-3 pr-2 py-1">
               🔍 "{filters.search_for}"

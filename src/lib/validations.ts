@@ -6,6 +6,7 @@ export const createEventSchema = z.object({
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
   max_capacity: z.number().min(1, 'Capacity must be at least 1').max(10000, 'Capacity cannot exceed 10000'),
+  timezone: z.string().min(1, 'Timezone is required'),
 }).refine((data) => {
   const start = new Date(data.start_time);
   const end = new Date(data.end_time);

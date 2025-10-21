@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -23,19 +23,32 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useApi } from '@/hooks/use-api';
 import { createEventSchema, type CreateEventFormData } from '@/lib/validations';
+import { getTimezoneOptions } from '@/lib/timezones';
 
 interface CreateEventFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
+// Extend the form data type to include timezone
+type ExtendedCreateEventFormData = CreateEventFormData & {
+  timezone: string;
+};
+
 export function CreateEventForm({ onSuccess, onCancel }: CreateEventFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { createEvent } = useApi();
 
-  const form = useForm<CreateEventFormData>({
+  const form = useForm<ExtendedCreateEventFormData>({
     resolver: zodResolver(createEventSchema),
     defaultValues: {
       name: '',
@@ -43,17 +56,21 @@ export function CreateEventForm({ onSuccess, onCancel }: CreateEventFormProps) {
       start_time: '',
       end_time: '',
       max_capacity: 100,
+      timezone: 'Asia/Kolkata', // Default timezone
     },
   });
 
-  const onSubmit = async (data: CreateEventFormData) => {
+  const onSubmit = async (data: ExtendedCreateEventFormData) => {
     setIsSubmitting(true);
     try {
       // Format dates to the required format (YYYY-MM-DD HH:mm:ss)
       const formattedData = {
-        ...data,
+        name: data.name,
+        location: data.location,
         start_time: format(new Date(data.start_time), 'yyyy-MM-dd HH:mm:ss'),
         end_time: format(new Date(data.end_time), 'yyyy-MM-dd HH:mm:ss'),
+        max_capacity: data.max_capacity,
+        timezone: data.timezone, // Include timezone in the request
       };
 
       console.log('Creating event with data:', formattedData);
@@ -103,6 +120,38 @@ export function CreateEventForm({ onSuccess, onCancel }: CreateEventFormProps) {
               </FormControl>
               <FormDescription>
                 Where will the event take place?
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Timezone Field */}
+        <FormField
+          control={form.control}
+          name="timezone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Timezone
+              </FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {getTimezoneOptions().map((timezone) => (
+                    <SelectItem key={timezone.value} value={timezone.value}>
+                      {timezone.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                Select the timezone for your event timing
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -210,7 +259,7 @@ export function CreateEventForm({ onSuccess, onCancel }: CreateEventFormProps) {
                             const currentTime = field.value ? new Date(field.value) : new Date();
                             const newDateTime = new Date(date);
                             newDateTime.setHours(currentTime.getHours(), currentTime.getMinutes());
-                            field.onChange(newDateTime.toISOString());
+                            field.onChange(date.toISOString());
                           }
                         }}
                         initialFocus
